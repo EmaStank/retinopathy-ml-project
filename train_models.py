@@ -1,5 +1,6 @@
 from scipy.io import arff
 import pandas as pd
+import os
 
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.preprocessing import StandardScaler
@@ -233,3 +234,26 @@ print("Logistic Regression CV Mean ROC-AUC:", log_cv_scores.mean())
 
 print("Random Forest Test ROC-AUC:", roc_auc_score(y_test, rf_prob))
 print("Random Forest CV Mean ROC-AUC:", rf_cv_scores.mean())
+
+os.makedirs("results", exist_ok=True)
+
+model_comparison = pd.DataFrame({
+    "Model": ["Logistic Regression", "Random Forest"],
+    "Test ROC-AUC": [
+        roc_auc_score(y_test, log_prob),
+        roc_auc_score(y_test, rf_prob)
+    ],
+    "CV Mean ROC-AUC": [
+        log_cv_scores.mean(),
+        rf_cv_scores.mean()
+    ],
+    "CV Std ROC-AUC": [
+        log_cv_scores.std(),
+        rf_cv_scores.std()
+    ]
+})
+
+model_comparison.to_csv("results/model_comparison.csv", index=False)
+feature_importance.to_csv("results/feature_importance.csv", index=False)
+
+print("\nCSV files updated successfully.")
