@@ -1,259 +1,195 @@
-from scipy.io import arff
-import pandas as pd
+#!/usr/bin/env python
+"""Train and compare multiple ML models on the Messidor retinopathy dataset."""
+
+import argparse
 import os
 
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
+import pandas as pd
+from scipy.io import arff
 
+from sklearn.ensemble import (
+    GradientBoostingClassifier,
+    HistGradientBoostingClassifier,
+    RandomForestClassifier,
+)
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
-    confusion_matrix,
     classification_report,
-    roc_auc_score,
+    confusion_matrix,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score
+    roc_auc_score,
 )
+from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 
-# ===================
-# 1. LOAD DATA
-# ===================
 
-data, meta = arff.loadarff("messidor_features.arff")
-df = pd.DataFrame(data)
+def load_dataset(path: str) -> pd.DataFrame:
+    data, _ = arff.loadarff(path)
+    df = pd.DataFrame(data)
 
-for col in df.select_dtypes([object]).columns:
-    df[col] = df[col].str.decode("utf-8")
+    for col in df.select_dtypes([object]).columns:
+        df[col] = df[col].str.decode("utf-8")
 
-print("\n===================")
-print("DATASET INFO")
-print("===================")
+    df["Class"] = df["Class"].astype(int)
 
-print("Shape:", df.shape)
+    return df
 
-print("\nColumns:")
-print(list(df.columns))
 
-print("\nTarget distribution:")
-print(df["Class"].value_counts())
-print(df["Class"].value_counts(normalize=True))
+def evaluate_model(name, model, X, y, X_test, y_test):
+    predictions = model.predict(X_test)
+    probabilities = model.predict_proba(X_test)[:, 1]
 
-# ===================
-# 2. FEATURES / TARGET
-# ===================
+    test_roc_auc = roc_auc_score(y_test, probabilities)
 
-X = df.drop("Class", axis=1)
-y = df["Class"].astype(int)
-
-# ===================
-# 3. TRAIN / TEST SPLIT
-# ===================
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.2,
-    random_state=42,
-    stratify=y
-)
-
-# ===================
-# 4. LOGISTIC REGRESSION
-# ===================
-
-log_reg = Pipeline([
-    ("scaler", StandardScaler()),
-    ("classifier", LogisticRegression(max_iter=1000))
-])
-
-log_reg.fit(X_train, y_train)
-
-log_pred = log_reg.predict(X_test)
-log_prob = log_reg.predict_proba(X_test)[:, 1]
-
-print("\n===================")
-print("LOGISTIC REGRESSION")
-print("===================")
-
-print("Accuracy:", accuracy_score(y_test, log_pred))
-
-print("\nConfusion matrix:")
-print(confusion_matrix(y_test, log_pred))
-
-print("\nClassification report:")
-print(classification_report(y_test, log_pred))
-
-print("ROC-AUC:", roc_auc_score(y_test, log_prob))
-
-# ===================
-# 5. THRESHOLD = 0.35
-# ===================
-
-custom_threshold = 0.35
-custom_pred = (log_prob >= custom_threshold).astype(int)
-
-print("\n===================")
-print("LOGISTIC REGRESSION - THRESHOLD 0.35")
-print("===================")
-
-print("Accuracy:", accuracy_score(y_test, custom_pred))
-
-print("\nConfusion matrix:")
-print(confusion_matrix(y_test, custom_pred))
-
-print("\nClassification report:")
-print(classification_report(y_test, custom_pred))
-
-# ===================
-# 6. THRESHOLD ANALYSIS
-# ===================
-
-print("\n===================")
-print("THRESHOLD ANALYSIS")
-print("===================")
-
-for threshold in [0.10, 0.20, 0.30, 0.35, 0.40, 0.50, 0.60, 0.70]:
-    pred = (log_prob >= threshold).astype(int)
-
-    precision = precision_score(y_test, pred)
-    recall = recall_score(y_test, pred)
-    f1 = f1_score(y_test, pred)
-
-    print(
-        f"Threshold={threshold:.2f} | "
-        f"Precision={precision:.3f} | "
-        f"Recall={recall:.3f} | "
-        f"F1={f1:.3f}"
+    cv_scores = cross_val_score(
+        model,
+        X,
+        y,
+        cv=5,
+        scoring="roc_auc",
     )
 
-# ===================
-# 7. LOGISTIC REGRESSION CROSS-VALIDATION
-# ===================
+    print("\n===================")
+    print(name.upper())
+    print("===================")
 
-log_cv_scores = cross_val_score(
-    log_reg,
-    X,
-    y,
-    cv=5,
-    scoring="roc_auc"
-)
+    print("Accuracy:", accuracy_score(y_test, predictions))
+    print("Precision:", precision_score(y_test, predictions))
+    print("Recall:", recall_score(y_test, predictions))
+    print("F1-score:", f1_score(y_test, predictions))
+    print("Test ROC-AUC:", test_roc_auc)
 
-print("\n===================")
-print("LOGISTIC REGRESSION CROSS-VALIDATION")
-print("===================")
+    print("\nConfusion matrix:")
+    print(confusion_matrix(y_test, predictions))
 
-print("CV ROC-AUC scores:")
-print(log_cv_scores)
+    print("\nClassification report:")
+    print(classification_report(y_test, predictions))
 
-print("Mean ROC-AUC:", log_cv_scores.mean())
-print("Std:", log_cv_scores.std())
+    print("CV ROC-AUC scores:")
+    print(cv_scores)
+    print("CV Mean ROC-AUC:", cv_scores.mean())
+    print("CV Std ROC-AUC:", cv_scores.std())
 
-# ===================
-# 8. RANDOM FOREST
-# ===================
+    return {
+        "Model": name,
+        "Accuracy": accuracy_score(y_test, predictions),
+        "Precision": precision_score(y_test, predictions),
+        "Recall": recall_score(y_test, predictions),
+        "F1-score": f1_score(y_test, predictions),
+        "Test ROC-AUC": test_roc_auc,
+        "CV Mean ROC-AUC": cv_scores.mean(),
+        "CV Std ROC-AUC": cv_scores.std(),
+    }
 
-rf = RandomForestClassifier(
-    n_estimators=300,
-    random_state=42
-)
 
-rf.fit(X_train, y_train)
+def main():
+    parser = argparse.ArgumentParser(
+        description="Train and compare ML models."
+    )
+    parser.add_argument(
+        "--input",
+        default="messidor_features.arff",
+        help="Path to the ARFF dataset file.",
+    )
+    args = parser.parse_args()
 
-rf_pred = rf.predict(X_test)
-rf_prob = rf.predict_proba(X_test)[:, 1]
+    df = load_dataset(args.input)
 
-print("\n===================")
-print("RANDOM FOREST")
-print("===================")
+    print("\n===================")
+    print("DATASET INFO")
+    print("===================")
 
-print("Accuracy:", accuracy_score(y_test, rf_pred))
+    print("Shape:", df.shape)
 
-print("\nConfusion matrix:")
-print(confusion_matrix(y_test, rf_pred))
+    print("\nTarget distribution:")
+    print(df["Class"].value_counts())
+    print(df["Class"].value_counts(normalize=True))
 
-print("\nClassification report:")
-print(classification_report(y_test, rf_pred))
+    X = df.drop("Class", axis=1)
+    y = df["Class"]
 
-print("ROC-AUC:", roc_auc_score(y_test, rf_prob))
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=0.2,
+        random_state=42,
+        stratify=y,
+    )
 
-# ===================
-# 9. RANDOM FOREST CROSS-VALIDATION
-# ===================
+    models = {
+        "Logistic Regression": Pipeline([
+            ("scaler", StandardScaler()),
+            ("classifier", LogisticRegression(max_iter=2000)),
+        ]),
 
-rf_cv_scores = cross_val_score(
-    rf,
-    X,
-    y,
-    cv=5,
-    scoring="roc_auc"
-)
+        "Random Forest": RandomForestClassifier(
+            n_estimators=300,
+            random_state=42,
+        ),
 
-print("\n===================")
-print("RANDOM FOREST CROSS-VALIDATION")
-print("===================")
+        "KNN": Pipeline([
+            ("scaler", StandardScaler()),
+            ("classifier", KNeighborsClassifier(n_neighbors=5)),
+        ]),
 
-print("CV ROC-AUC scores:")
-print(rf_cv_scores)
+        "SVM": Pipeline([
+            ("scaler", StandardScaler()),
+            ("classifier", SVC(kernel="rbf", probability=True, random_state=42)),
+        ]),
 
-print("Mean ROC-AUC:", rf_cv_scores.mean())
-print("Std:", rf_cv_scores.std())
+        "Gradient Boosting": GradientBoostingClassifier(
+            random_state=42,
+        ),
 
-# ===================
-# 10. FEATURE IMPORTANCE
-# ===================
+        "HistGradientBoosting": HistGradientBoostingClassifier(
+            random_state=42,
+        ),
+    }
 
-feature_importance = pd.DataFrame({
-    "Feature": X.columns,
-    "Importance": rf.feature_importances_
-})
+    results = []
 
-feature_importance = feature_importance.sort_values(
-    by="Importance",
-    ascending=False
-)
+    for name, model in models.items():
+        model.fit(X_train, y_train)
 
-print("\n===================")
-print("RANDOM FOREST FEATURE IMPORTANCE")
-print("===================")
+        result = evaluate_model(
+            name=name,
+            model=model,
+            X=X,
+            y=y,
+            X_test=X_test,
+            y_test=y_test,
+        )
 
-print(feature_importance)
+        results.append(result)
 
-# ===================
-# 11. MODEL COMPARISON
-# ===================
+    os.makedirs("results", exist_ok=True)
 
-print("\n===================")
-print("MODEL COMPARISON")
-print("===================")
+    model_comparison = pd.DataFrame(results)
+    model_comparison = model_comparison.sort_values(
+        by="CV Mean ROC-AUC",
+        ascending=False,
+    )
 
-print("Logistic Regression Test ROC-AUC:", roc_auc_score(y_test, log_prob))
-print("Logistic Regression CV Mean ROC-AUC:", log_cv_scores.mean())
+    model_comparison.to_csv(
+        "results/model_comparison.csv",
+        index=False,
+    )
 
-print("Random Forest Test ROC-AUC:", roc_auc_score(y_test, rf_prob))
-print("Random Forest CV Mean ROC-AUC:", rf_cv_scores.mean())
+    print("\n===================")
+    print("MODEL COMPARISON")
+    print("===================")
 
-os.makedirs("results", exist_ok=True)
+    print(model_comparison)
 
-model_comparison = pd.DataFrame({
-    "Model": ["Logistic Regression", "Random Forest"],
-    "Test ROC-AUC": [
-        roc_auc_score(y_test, log_prob),
-        roc_auc_score(y_test, rf_prob)
-    ],
-    "CV Mean ROC-AUC": [
-        log_cv_scores.mean(),
-        rf_cv_scores.mean()
-    ],
-    "CV Std ROC-AUC": [
-        log_cv_scores.std(),
-        rf_cv_scores.std()
-    ]
-})
+    print("\nCSV file saved successfully:")
+    print("results/model_comparison.csv")
 
-model_comparison.to_csv("results/model_comparison.csv", index=False)
-feature_importance.to_csv("results/feature_importance.csv", index=False)
 
-print("\nCSV files updated successfully.")
+if __name__ == "__main__":
+    main()
