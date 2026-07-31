@@ -44,6 +44,17 @@ For a quick smoke test, use:
 python tune_models.py --iterations 2 --folds 3 --jobs 1
 ```
 
+Additional tabular models (Extra Trees, XGBoost, LDA, QDA, GaussianNB,
+elastic-net Logistic Regression and a soft-voting ensemble) can be tuned with:
+```powershell
+python train_models_2.py --iterations 40 --folds 5
+```
+
+Quick validation of the additional models:
+```powershell
+python train_models_2.py --iterations 2 --folds 3 --jobs 1
+```
+
 > If you run `python load_data.py` without the venv activated, Windows may use your system Python and fail to import `scipy`.
 
 ## Requirements

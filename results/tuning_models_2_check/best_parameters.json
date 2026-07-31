@@ -1,0 +1,79 @@
+{
+  "Extra Trees": {
+    "best_cv_roc_auc": 0.7546368179510269,
+    "selected_threshold": 0.32999999999999996,
+    "parameters": {
+      "class_weight": "balanced_subsample",
+      "criterion": "gini",
+      "max_depth": 24,
+      "max_features": null,
+      "min_samples_leaf": 8,
+      "min_samples_split": 8,
+      "n_estimators": 321
+    }
+  },
+  "XGBoost": {
+    "best_cv_roc_auc": 0.7553886111742281,
+    "selected_threshold": 0.3449999999999999,
+    "parameters": {
+      "colsample_bytree": 0.8404460046972835,
+      "gamma": 0.10846369160891249,
+      "learning_rate": 0.010725209743171996,
+      "max_depth": 3,
+      "min_child_weight": 2.7796975515266835,
+      "n_estimators": 513,
+      "reg_alpha": 0.00018794668241638458,
+      "reg_lambda": 0.006053891567028103,
+      "subsample": 0.6733618039413735
+    }
+  },
+  "Linear Discriminant Analysis": {
+    "best_cv_roc_auc": 0.7783760740404118,
+    "selected_threshold": 0.37999999999999995,
+    "parameters": {
+      "classifier__solver": "svd",
+      "classifier__tol": 0.0015352246941973493
+    }
+  },
+  "Quadratic Discriminant Analysis": {
+    "best_cv_roc_auc": 0.7017713601846943,
+    "selected_threshold": 0.07,
+    "parameters": {
+      "classifier__reg_param": 0.3745401188473625,
+      "classifier__tol": 0.006351221010640704
+    }
+  },
+  "Gaussian Naive Bayes": {
+    "best_cv_roc_auc": 0.6845136469405101,
+    "selected_threshold": 0.065,
+    "parameters": {
+      "classifier__var_smoothing": 9.91564456663841e-10
+    }
+  },
+  "Elastic-net Logistic Regression": {
+    "best_cv_roc_auc": 0.8061568323416957,
+    "selected_threshold": 0.3499999999999999,
+    "parameters": {
+      "classifier__C": 28.697033315125136,
+      "classifier__class_weight": null,
+      "classifier__l1_ratio": 0.15601864044243652
+    }
+  },
+  "Soft Voting Ensemble": {
+    "best_cv_roc_auc": 0.7728044236579228,
+    "selected_threshold": 0.4049999999999999,
+    "parameters": {
+      "elastic__classifier__C": 0.16949768237884735,
+      "elastic__classifier__l1_ratio": 0.09997491581800289,
+      "extra__max_depth": 8,
+      "extra__min_samples_leaf": 8,
+      "weights": [
+        2,
+        1,
+        2
+      ],
+      "xgb__learning_rate": 0.1,
+      "xgb__max_depth": 3
+    }
+  }
+}
